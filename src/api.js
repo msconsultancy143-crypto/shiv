@@ -1,4 +1,7 @@
-const apiBase = import.meta.env.VITE_API_URL || "";
+const apiBase = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "https://shiv-tsyz.onrender.com" : "")
+).replace(/\/+$/, "");
 
 export async function api(path, options = {}) {
   const token = localStorage.getItem("counter_token");

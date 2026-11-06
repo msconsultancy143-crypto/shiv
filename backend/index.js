@@ -10,9 +10,13 @@ import { Counter, FoodCategory, Product, Sale, Settings, User } from "./models.j
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const jwtSecret = process.env.JWT_SECRET;
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
-  .split(",")
-  .map((origin) => origin.trim());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://maxx-cafe.onrender.com",
+  ...(process.env.CLIENT_ORIGIN || "").split(","),
+]
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is required");
 if (!jwtSecret || jwtSecret.length < 32) {

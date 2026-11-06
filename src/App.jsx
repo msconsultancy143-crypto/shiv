@@ -698,13 +698,9 @@ function App() {
       `GST: Rs. ${Number(sale.gst_amount).toFixed(2)}`,
       `Total: Rs. ${Number(sale.total).toFixed(2)}`,
       `Payment: ${sale.payment_method}`,
-      "The PDF bill is downloaded and ready to attach.",
     ].join("\n");
-    const whatsappUrl = `https://web.whatsapp.com/send?${whatsappNumber ? `phone=${whatsappNumber}&` : ""}text=${encodeURIComponent(message)}`;
-    let whatsappWindow;
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     try {
-      whatsappWindow = window.open(whatsappUrl, "_blank");
-      if (whatsappWindow) whatsappWindow.opener = null;
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF();
       const left = 16;
@@ -767,14 +763,29 @@ function App() {
 
       const orderLabel = String(sale.order_code || sale.id).replace(/[^A-Za-z0-9_-]/g, "-");
       const filename = `receipt-${orderLabel}.pdf`;
-      pdf.save(filename);
-      if (!whatsappWindow) {
-        window.location.assign(whatsappUrl);
-        return;
+      const file = new File([pdf.output("blob")], filename, { type: "application/pdf" });
+      if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Bill ${sale.order_code || sale.id}`,
+            text: message,
+          });
+          setNotice("PDF bill shared. Choose WhatsApp from the share menu to send it.");
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") {
+            setNotice("Bill sharing cancelled.");
+            return;
+          }
+        }
       }
-      setNotice("WhatsApp opened and the PDF bill downloaded. Attach the PDF in WhatsApp, then press Send.");
+
+      pdf.save(filename);
+      const whatsappWindow = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      if (!whatsappWindow) window.location.assign(whatsappUrl);
+      setNotice("PDF bill downloaded. Attach it in WhatsApp and press Send.");
     } catch (error) {
-      whatsappWindow?.close();
       setNotice(`Could not prepare the bill PDF: ${error.message}`);
     } finally {
       setSharingReceipt(false);
