@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="background" x1="7" y1="5" x2="57" y2="61" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#416F56"/>
+      <stop offset="1" stop-color="#244A39"/>
+    </linearGradient>
+    <linearGradient id="awning" x1="16" y1="19" x2="48" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8E9"/>
+      <stop offset="1" stop-color="#E9F0E4"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#background)"/>
+  <path d="M15 27.5 19.2 17h25.6L49 27.5v3a5 5 0 0 1-8.5 3.5 5 5 0 0 1-8.5 0 5 5 0 0 1-8.5 0A5 5 0 0 1 15 30.5v-3Z" fill="url(#awning)"/>
+  <path d="M19 33v15.5h26V33" stroke="#FFF8E9" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+  <path d="M28 48.5V39h8v9.5" stroke="#E9F0E4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
+  <path d="M15 27.5h34" stroke="#E08B68" stroke-linecap="round" stroke-width="3"/>
+  <circle cx="45" cy="42" r="1.5" fill="#E08B68"/>
+</svg>

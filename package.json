@@ -1,0 +1,35 @@
+{
+  "name": "shiv",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:server:dev\" \"vite\"",
+    "server:dev": "npm --prefix backend run dev",
+    "server:start": "npm --prefix backend start",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend start",
+    "create-admin": "npm --prefix backend run create-admin",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.67.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "oxlint": "^1.89.0",
+    "vite": "^8.3.5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}
