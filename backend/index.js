@@ -155,12 +155,31 @@ app.get(
       expires_at: { $gt: new Date() },
     }).select("pdf filename").lean();
     if (!receipt) return res.status(404).json({ error: "Receipt link is invalid or expired." });
+    const storedPdf = receipt.pdf;
+    let pdf;
+    if (Buffer.isBuffer(storedPdf)) {
+      pdf = storedPdf;
+    } else if (typeof storedPdf === "string") {
+      const base64 = storedPdf.startsWith('"') && storedPdf.endsWith('"')
+        ? storedPdf.slice(1, -1)
+        : storedPdf;
+      pdf = Buffer.from(base64, "base64");
+    } else if (storedPdf?._bsontype === "Binary") {
+      pdf = Buffer.from(storedPdf.value(true));
+    } else if (storedPdf?.type === "Buffer" && Array.isArray(storedPdf.data)) {
+      pdf = Buffer.from(storedPdf.data);
+    } else {
+      throw new Error("Stored receipt PDF has an unsupported format");
+    }
+    if (pdf.subarray(0, 5).toString() !== "%PDF-") {
+      throw new Error("Stored receipt is not a valid PDF");
+    }
     res.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${receipt.filename}"`,
       "Cache-Control": "private, no-store",
     });
-    return res.send(receipt.pdf);
+    return res.end(pdf);
   }),
 );
 
@@ -556,7 +575,7 @@ app.post(
       expires_at: expiresAt,
     });
 
-    const apiBase = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+    const apiBase = `${req.protocol}://${req.get("host")}`;
     return res.status(201).json({
       url: `${apiBase}/api/receipts/${token}`,
       expiresAt: expiresAt.toISOString(),

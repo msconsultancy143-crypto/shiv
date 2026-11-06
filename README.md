@@ -44,7 +44,7 @@ Counter staff sign in with the username chosen by the admin and the password the
 - `npm run build` — builds the frontend.
 - `npm run lint` — runs Oxlint.
 
-The standalone backend is in [`backend/`](./backend/), with its own `package.json`, dependencies, environment template and run scripts. The frontend proxies `/api` requests to `http://localhost:5000` in development. When frontend and API are deployed separately, set `VITE_API_URL` to the API origin at frontend build time and set `CLIENT_ORIGIN` to the deployed frontend origin in `backend/.env`. Multiple frontend origins may be comma-separated. Set `PUBLIC_API_URL` to the public API origin so shared receipt links use the correct host. Shared PDF receipts are bearer links that expire after seven days.
+The standalone backend is in [`backend/`](./backend/), with its own `package.json`, dependencies, environment template and run scripts. The frontend proxies `/api` requests to `http://localhost:5000` in development. When frontend and API are deployed separately, set `VITE_API_URL` to the API origin at frontend build time and set `CLIENT_ORIGIN` to the deployed frontend origin in `backend/.env`. Multiple frontend origins may be comma-separated. Shared receipt links use the backend's request host and are bearer links that expire after seven days.
 
 Do not expose `MONGODB_URI` or `JWT_SECRET` as `VITE_*` variables. For production, serve the frontend over HTTPS and use a strong private JWT secret.
 
