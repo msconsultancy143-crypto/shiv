@@ -108,9 +108,17 @@ const counterSchema = new Schema({
   value: { type: Number, required: true, default: 0 },
 });
 
+const receiptShareSchema = new Schema({
+  token_hash: { type: String, required: true, unique: true },
+  pdf: { type: Buffer, required: true },
+  filename: { type: String, required: true },
+  expires_at: { type: Date, required: true, expires: 0 },
+});
+
 export const User = mongoose.model("User", userSchema);
 export const Product = mongoose.model("Product", productSchema);
 export const FoodCategory = mongoose.model("FoodCategory", foodCategorySchema);
 export const Settings = mongoose.model("Settings", settingsSchema);
 export const Sale = mongoose.model("Sale", saleSchema);
 export const Counter = mongoose.model("Counter", counterSchema);
+export const ReceiptShare = mongoose.model("ReceiptShare", receiptShareSchema);

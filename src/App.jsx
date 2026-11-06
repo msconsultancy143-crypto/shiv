@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, jsonBody } from "./api.js";
+import { api, apiBase, jsonBody } from "./api.js";
 import {
   ArrowRight,
   BadgeIndianRupee,
@@ -689,7 +689,7 @@ function App() {
     setSharingReceipt(true);
     const phone = String(sale.customer_phone || "").replace(/\D/g, "");
     const whatsappNumber = phone.length === 10 ? `91${phone}` : "";
-    const message = [
+    const messageDetails = [
       `Bill from ${sale.shop_name || "our store"}`,
       `Order: ${sale.order_code || sale.id}`,
       `Customer: ${sale.customer || "Walk-in customer"}`,
@@ -698,9 +698,11 @@ function App() {
       `GST: Rs. ${Number(sale.gst_amount).toFixed(2)}`,
       `Total: Rs. ${Number(sale.total).toFixed(2)}`,
       `Payment: ${sale.payment_method}`,
-    ].join("\n");
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    ];
+    let whatsappWindow;
     try {
+      whatsappWindow = window.open("about:blank", "_blank");
+      if (whatsappWindow) whatsappWindow.opener = null;
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF();
       const left = 16;
@@ -761,31 +763,19 @@ function App() {
       addText(`TOTAL: Rs. ${Number(sale.total).toFixed(2)}`, { size: 13, bold: true, gap: 8 });
       addText("Thank you for shopping with us!", { size: 9 });
 
-      const orderLabel = String(sale.order_code || sale.id).replace(/[^A-Za-z0-9_-]/g, "-");
-      const filename = `receipt-${orderLabel}.pdf`;
-      const file = new File([pdf.output("blob")], filename, { type: "application/pdf" });
-      if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: `Bill ${sale.order_code || sale.id}`,
-            text: message,
-          });
-          setNotice("PDF bill shared. Choose WhatsApp from the share menu to send it.");
-          return;
-        } catch (error) {
-          if (error.name === "AbortError") {
-            setNotice("Bill sharing cancelled.");
-            return;
-          }
-        }
-      }
-
-      pdf.save(filename);
-      const whatsappWindow = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      const { url } = await api(`/orders/${sale.id}/receipt-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: pdf.output("blob"),
+      });
+      const receiptUrl = new URL(url, apiBase || window.location.origin).toString();
+      const message = [...messageDetails, `PDF bill: ${receiptUrl}`].join("\n");
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      if (whatsappWindow) whatsappWindow.location.replace(whatsappUrl);
       if (!whatsappWindow) window.location.assign(whatsappUrl);
-      setNotice("PDF bill downloaded. Attach it in WhatsApp and press Send.");
+      setNotice("Secure PDF link added to WhatsApp. Review the message and press Send.");
     } catch (error) {
+      whatsappWindow?.close();
       setNotice(`Could not prepare the bill PDF: ${error.message}`);
     } finally {
       setSharingReceipt(false);

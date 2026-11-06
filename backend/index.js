@@ -1,13 +1,15 @@
 import "dotenv/config";
+import { createHash, randomBytes } from "node:crypto";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
-import { Counter, FoodCategory, Product, Sale, Settings, User } from "./models.js";
+import { Counter, FoodCategory, Product, ReceiptShare, Sale, Settings, User } from "./models.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const port = Number(process.env.PORT || 5000);
 const jwtSecret = process.env.JWT_SECRET;
 const allowedOrigins = [
@@ -140,6 +142,27 @@ const isValidProduct = (body) =>
   (body.active === undefined || typeof body.active === "boolean");
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+
+app.get(
+  "/api/receipts/:token",
+  asyncRoute(async (req, res) => {
+    if (!/^[a-f0-9]{64}$/.test(req.params.token)) {
+      return res.status(404).json({ error: "Receipt link is invalid or expired." });
+    }
+    const tokenHash = createHash("sha256").update(req.params.token).digest("hex");
+    const receipt = await ReceiptShare.findOne({
+      token_hash: tokenHash,
+      expires_at: { $gt: new Date() },
+    }).select("pdf filename").lean();
+    if (!receipt) return res.status(404).json({ error: "Receipt link is invalid or expired." });
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${receipt.filename}"`,
+      "Cache-Control": "private, no-store",
+    });
+    return res.send(receipt.pdf);
+  }),
+);
 
 app.post(
   "/api/auth/login",
@@ -505,6 +528,39 @@ app.get(
     const filter = req.user.role === "admin" ? {} : { created_by: req.user._id };
     const sales = await Sale.find(filter).sort({ created_at: -1 }).limit(100);
     return res.json({ sales: sales.map(publicSale) });
+  }),
+);
+
+app.post(
+  "/api/orders/:id/receipt-link",
+  authenticate,
+  express.raw({ type: "application/pdf", limit: "2mb" }),
+  asyncRoute(async (req, res) => {
+    if (!validId(req.params.id)) return res.status(400).json({ error: "Invalid order ID." });
+    const saleFilter = req.user.role === "admin"
+      ? { _id: req.params.id }
+      : { _id: req.params.id, created_by: req.user._id };
+    const sale = await Sale.findOne(saleFilter).select("_id order_code");
+    if (!sale) return res.status(404).json({ error: "Order not found." });
+    if (!Buffer.isBuffer(req.body) || req.body.length < 8 || req.body.subarray(0, 5).toString() !== "%PDF-") {
+      return res.status(400).json({ error: "A valid PDF receipt is required." });
+    }
+
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const orderLabel = String(sale.order_code || sale._id).replace(/[^A-Za-z0-9_-]/g, "-");
+    await ReceiptShare.create({
+      token_hash: createHash("sha256").update(token).digest("hex"),
+      pdf: req.body,
+      filename: `receipt-${orderLabel}.pdf`,
+      expires_at: expiresAt,
+    });
+
+    const apiBase = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+    return res.status(201).json({
+      url: `${apiBase}/api/receipts/${token}`,
+      expiresAt: expiresAt.toISOString(),
+    });
   }),
 );
 

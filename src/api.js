@@ -1,4 +1,4 @@
-const apiBase = (
+export const apiBase = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? "https://shiv-tsyz.onrender.com" : "")
 ).replace(/\/+$/, "");
@@ -6,7 +6,12 @@ const apiBase = (
 export async function api(path, options = {}) {
   const token = localStorage.getItem("counter_token");
   const headers = new Headers(options.headers || {});
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  if (
+    options.body !== undefined &&
+    !(options.body instanceof Blob) &&
+    !(options.body instanceof FormData) &&
+    !(options.body instanceof ArrayBuffer)
+  ) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let response;
