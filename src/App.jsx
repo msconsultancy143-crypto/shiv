@@ -243,8 +243,17 @@ function App() {
     (total, item) => total + Number(item.price) * item.quantity,
     0,
   );
+  const isGstExemptLine = (item) => {
+    if (typeof item.gst_exempt === "boolean") return item.gst_exempt;
+    const category = item.category || products.find((product) => product.id === item.product_id)?.category;
+    return category?.trim().toLowerCase() === "cigarettes";
+  };
+  const taxableSubtotal = cart.reduce(
+    (sum, item) => sum + (isGstExemptLine(item) ? 0 : Number(item.price) * item.quantity),
+    0,
+  );
   const tax = settings.gst_enabled
-    ? Math.round(subtotal * Number(settings.gst_rate)) / 100
+    ? Math.round(taxableSubtotal * Number(settings.gst_rate)) / 100
     : 0;
   const total = subtotal + tax;
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -252,8 +261,12 @@ function App() {
     (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
     0,
   );
+  const editedTaxableSubtotal = editItems.reduce(
+    (sum, item) => sum + (isGstExemptLine(item) ? 0 : Number(item.price || 0) * Number(item.quantity || 0)),
+    0,
+  );
   const editedGst = editSale
-    ? Math.round(editedSubtotal * Number(editSale.gst_rate)) / 100
+    ? Math.round(editedTaxableSubtotal * Number(editSale.gst_rate)) / 100
     : 0;
 
   function addProduct(product) {
@@ -448,6 +461,7 @@ function App() {
         product_id: item.product_id,
         name: item.name,
         price: item.price,
+        gst_exempt: isGstExemptLine(item),
         quantity: item.quantity,
       })),
     );
@@ -470,6 +484,7 @@ function App() {
               product_id: product.id,
               name: product.name,
               price: product.price,
+              gst_exempt: sectionForProduct(product) === "Cigarettes",
               quantity: 1,
             }
           : item,
@@ -759,7 +774,7 @@ function App() {
       pdf.line(left, y, 194, y);
       y += 8;
       addText(`Subtotal: Rs. ${Number(sale.subtotal).toFixed(2)}`);
-      addText(`GST (${sale.gst_rate}%): Rs. ${Number(sale.gst_amount).toFixed(2)}`);
+      addText(`GST (${sale.gst_rate}%, excluding cigarettes): Rs. ${Number(sale.gst_amount).toFixed(2)}`);
       addText(`TOTAL: Rs. ${Number(sale.total).toFixed(2)}`, { size: 13, bold: true, gap: 8 });
       addText("Thank you for shopping with us!", { size: 9 });
 
@@ -1556,7 +1571,7 @@ function App() {
                     <strong>{money(subtotal)}</strong>
                   </div>
                   <div className="checkout-total-line">
-                    <span>GST {settings.gst_enabled ? `(${settings.gst_rate}%)` : "(off)"}</span>
+                    <span>GST {settings.gst_enabled ? `(${settings.gst_rate}%, cigarettes excluded)` : "(off)"}</span>
                     <strong>{money(tax)}</strong>
                   </div>
                   <div className="checkout-grand-total">
@@ -2479,7 +2494,7 @@ function App() {
                       <strong>Apply GST to sales</strong>
                       <p>
                         {settingsDraft.gst_enabled
-                          ? "GST is added to new sales."
+                          ? "GST applies to eligible items; cigarettes are excluded."
                           : "GST is currently off."}
                       </p>
                     </div>
@@ -3241,7 +3256,7 @@ function App() {
                   <span>{money(receipt.subtotal)}</span>
                 </div>
                 <div>
-                  <span>GST ({receipt.gst_rate}%)</span>
+                  <span>GST ({receipt.gst_rate}%, cigarettes excluded)</span>
                   <span>{money(receipt.gst_amount)}</span>
                 </div>
                 <div className="receipt-total">

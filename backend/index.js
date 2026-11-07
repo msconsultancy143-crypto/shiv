@@ -75,11 +75,12 @@ const publicSale = (sale) => ({
   customer_phone: sale.customer_phone,
   payment_method: sale.payment_method,
   status: sale.status,
-  items: sale.items.map(({ product_id, name, price, quantity }) => ({
+  items: sale.items.map(({ product_id, name, price, quantity, gst_exempt }) => ({
     product_id,
     name,
     price,
     quantity,
+    ...(typeof gst_exempt === "boolean" ? { gst_exempt } : {}),
   })),
   subtotal: sale.subtotal,
   gst_rate: sale.gst_rate,
@@ -121,6 +122,8 @@ const loginLimiter = rateLimit({
 
 const validId = (id) => mongoose.isValidObjectId(id);
 const finiteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const isCigaretteProduct = (product) =>
+  product.category?.trim().toLowerCase() === "cigarettes";
 const validOptionalString = (value, maxLength) =>
   value === undefined || (typeof value === "string" && value.length <= maxLength);
 const isValidProduct = (body) =>
@@ -636,6 +639,7 @@ app.post(
     try {
       await mongoSession.withTransaction(async () => {
         let subtotal = 0;
+        let taxableSubtotal = 0;
         const saleItems = [];
         for (const item of [...items].sort((a, b) => a.product_id.localeCompare(b.product_id))) {
           const product = await Product.findOneAndUpdate(
@@ -645,18 +649,21 @@ app.post(
           );
           if (!product) throw Object.assign(new Error("Product unavailable or insufficient stock"), { status: 409 });
           subtotal += product.price * item.quantity;
+          const gstExempt = isCigaretteProduct(product);
+          if (!gstExempt) taxableSubtotal += product.price * item.quantity;
           saleItems.push({
             product_id: product._id,
             name: product.name,
             price: product.price,
             cost_price: product.cost_price,
+            gst_exempt: gstExempt,
             quantity: item.quantity,
           });
         }
         const settings = await Settings.findOne().session(mongoSession);
         if (!settings) throw new Error("Store settings are not configured");
         const gstRate = settings.gst_enabled ? settings.gst_rate : 0;
-        const gstAmount = settings.gst_enabled ? Math.round(subtotal * gstRate) / 100 : 0;
+        const gstAmount = settings.gst_enabled ? Math.round(taxableSubtotal * gstRate) / 100 : 0;
         const [sale] = await Sale.create(
           [{
             order_code: String(order_code),
@@ -743,11 +750,19 @@ app.patch(
               if (!product) throw Object.assign(new Error("A product in this order no longer exists; its stock cannot be restored."), { status: 409 });
               changedProductsById.set(product._id.toString(), product);
             }
+            let gstExempt = previousItem.gst_exempt;
+            if (gstExempt === undefined) {
+              const product = await Product.findById(requestedItem.product_id)
+                .select("category")
+                .session(mongoSession);
+              gstExempt = product ? isCigaretteProduct(product) : false;
+            }
             nextItems.push({
               product_id: previousItem.product_id,
               name: previousItem.name,
               price: previousItem.price,
               cost_price: previousItem.cost_price,
+              gst_exempt: gstExempt,
               quantity: requestedItem.quantity,
             });
           } else {
@@ -763,6 +778,7 @@ app.patch(
               name: product.name,
               price: product.price,
               cost_price: product.cost_price,
+              gst_exempt: isCigaretteProduct(product),
               quantity: requestedItem.quantity,
             });
           }
@@ -780,9 +796,13 @@ app.patch(
         }
 
         const subtotal = nextItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const taxableSubtotal = nextItems.reduce(
+          (sum, item) => sum + (item.gst_exempt ? 0 : item.price * item.quantity),
+          0,
+        );
         sale.items = nextItems;
         sale.subtotal = subtotal;
-        sale.gst_amount = Math.round(subtotal * sale.gst_rate) / 100;
+        sale.gst_amount = Math.round(taxableSubtotal * sale.gst_rate) / 100;
         sale.total = subtotal + sale.gst_amount;
         await sale.save({ session: mongoSession });
         updatedSale = sale;

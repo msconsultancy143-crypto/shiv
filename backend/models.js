@@ -70,6 +70,7 @@ const saleItemSchema = new Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
     cost_price: { type: Number, default: null, min: 0 },
+    gst_exempt: { type: Boolean },
     quantity: { type: Number, required: true, min: 1, max: 100000 },
   },
   { _id: false },

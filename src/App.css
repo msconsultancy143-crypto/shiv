@@ -410,3 +410,41 @@ input[aria-invalid="true"]{border-color:#c97865}
 .whatsapp-button{background:#218c55;color:#fff}
 .whatsapp-button:hover:not(:disabled){background:#197545}
 @media(max-width:480px){.receipt-actions{flex-direction:column}.receipt-actions .button{width:100%}}
+
+.app-shell.order-mode{background:#f0f0e7;background-image:radial-gradient(ellipse at 12% 9%,#fff8df 0,transparent 35%),radial-gradient(ellipse at 83% 86%,#dcebe0 0,transparent 38%)}
+.app-shell.order-mode .billing-layout,.app-shell.order-mode .catalog{background:transparent}
+.app-shell.order-mode .catalog{position:relative}
+.app-shell.order-mode .catalog>.page-heading{padding:21px 23px;border:1px solid #e6e5d7;border-radius:12px;background:linear-gradient(115deg,#fffdf4f2,#fffdf4d9);box-shadow:0 12px 35px #5061470b}
+.app-shell.order-mode .page-heading h1{letter-spacing:-1.1px}
+.app-shell.order-mode .order-identifiers>div{border-color:#e8e5d8;border-radius:8px;background:#fffef9}
+.app-shell.order-mode .catalog-heading{margin-top:5px}
+.app-shell.order-mode .search-box{border-color:#e5e5d9;border-radius:10px;background:#fffefb;box-shadow:0 5px 16px #56644708}
+.app-shell.order-mode .product-section{padding:15px;border:1px solid #e5e6da;border-radius:11px;background:#fffef9d9;box-shadow:0 8px 22px #50614708}
+.app-shell.order-mode .product-section-heading{padding:0 0 11px;border-bottom:1px dashed #dedfce}
+.app-shell.order-mode .product-section-heading h2{font-size:14px}
+.app-shell.order-mode .item-sheet-wrap{border-color:#eeece1;border-radius:8px;background:#fff}
+.app-shell.order-mode .item-sheet th{background:#f5f4e9;border-color:#eeece1;color:#777965}
+.app-shell.order-mode .item-sheet td{border-color:#f0efe8}
+.app-shell.order-mode .item-sheet tbody tr:nth-child(even){background:#fcfbf6}
+.app-shell.order-mode .item-sheet tbody tr:hover{background:#f1f5e9}
+.app-shell.order-mode .sheet-add{border-color:#dbe5d2;border-radius:6px;background:#f4f7ed}
+.app-shell.order-mode .checkout-workspace{position:relative;isolation:isolate;overflow:hidden;border:1px solid #e5e2d4;border-radius:0 0 0 20px;background:#fffdf4;box-shadow:-12px 0 36px #4f59400c}
+.app-shell.order-mode .checkout-workspace::before,.app-shell.order-mode .checkout-workspace::after{position:absolute;z-index:-1;right:0;left:0;height:15px;content:"";background:radial-gradient(circle at 10px 0,#e9e9df 8px,transparent 8.5px) repeat-x 0 0/20px 15px}
+.app-shell.order-mode .checkout-workspace::before{top:0}
+.app-shell.order-mode .checkout-workspace::after{bottom:0;transform:rotate(180deg)}
+.app-shell.order-mode .checkout-workspace-head{margin-top:5px;border-bottom:1px dashed #d9d9c9}
+.app-shell.order-mode .checkout-workspace-head .eyebrow{color:#8e9b81}
+.app-shell.order-mode .checkout-workspace-head h2{font-size:24px;letter-spacing:-.7px}
+.app-shell.order-mode .checkout-cancel{border-radius:8px;background:#fffef9}
+.app-shell.order-mode .checkout-customer-id{border-color:#e7e4d7;border-radius:8px;background:#f7f5e9}
+.app-shell.order-mode .checkout-customer-field input{border-color:#e8e5d9;border-radius:8px;background:#fffefb}
+.app-shell.order-mode .checkout-items-head{border-bottom:1px dashed #dedfce}
+.app-shell.order-mode .checkout-line{border-top:1px dashed #e6e3d8}
+.app-shell.order-mode .checkout-payment-panel{border-color:#e5e3d6;border-radius:12px;background:linear-gradient(145deg,#f8f6e9,#f2f5eb)}
+.app-shell.order-mode .checkout-grand-total{border-top:1px dashed #d6dacd}
+.app-shell.order-mode .checkout-grand-total>strong{color:#245e45;font-size:27px}
+.app-shell.order-mode .checkout-payment-options button{border-radius:8px;background:#fffef9}
+.app-shell.order-mode .checkout-payment-options button.active{border-color:#779b78;background:#e8f0df;color:#315d4d}
+.app-shell.order-mode .checkout-submit{min-height:44px;border-radius:9px;box-shadow:0 5px 14px #315d4d22}
+.app-shell.order-mode .catalog-footer{border-color:#dedfce}
+@media(max-width:760px){.app-shell.order-mode .catalog>.page-heading{padding:18px;border-radius:10px}.app-shell.order-mode .checkout-workspace{border-radius:14px 14px 0 0}.app-shell.order-mode .checkout-workspace::before,.app-shell.order-mode .checkout-workspace::after{background-size:20px 12px}.app-shell.order-mode .checkout-workspace-head{margin-top:4px}}
