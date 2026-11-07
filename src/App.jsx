@@ -68,6 +68,12 @@ const orderLabels = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
+const receiptStatusLabels = {
+  pending_payment: "PAYMENT PENDING",
+  preparing: "PAYMENT CONFIRMED · PREPARING",
+  completed: "COMPLETED",
+  cancelled: "CANCELLED",
+};
 const productSections = ["Cigarettes", "Other food items"];
 const sectionForProduct = (product) =>
   product.category?.trim().toLowerCase() === "cigarettes"
@@ -304,6 +310,14 @@ function App() {
         .filter((item) => item.quantity > 0),
     );
   }
+  function removeFromCart(id) {
+    setCart((current) => current.filter((item) => item.id !== id));
+    setQuantityDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
   function editQuantity(id, value) {
     setQuantityDrafts((current) => ({ ...current, [id]: value }));
     if (!/^[0-9]+$/.test(value)) return;
@@ -441,6 +455,7 @@ function App() {
       setSales((current) =>
         current.map((item) => (item.id === order.id ? sale : item)),
       );
+      setReceipt((current) => (current?.id === sale.id ? sale : current));
       setNotice(
         next === "preparing"
           ? "Payment confirmed. Order is being prepared."
@@ -713,70 +728,158 @@ function App() {
       `GST: Rs. ${Number(sale.gst_amount).toFixed(2)}`,
       `Total: Rs. ${Number(sale.total).toFixed(2)}`,
       `Payment: ${sale.payment_method}`,
+      `Order status: ${receiptStatusLabels[sale.status] || sale.status}`,
     ];
     let whatsappWindow;
     try {
       whatsappWindow = window.open("about:blank", "_blank");
       if (whatsappWindow) whatsappWindow.opener = null;
       const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF();
-      const left = 16;
-      const maxWidth = 178;
-      let y = 18;
-      const addText = (value, { size = 10, bold = false, gap = 6 } = {}) => {
+      const storeDetails = [
+        sale.shop_address,
+        sale.shop_phone && `Phone: ${sale.shop_phone}`,
+        sale.shop_gstin && `GSTIN: ${sale.shop_gstin}`,
+      ].filter(Boolean);
+      const customerDetails = [
+        `Customer ID: ${sale.customer_code || "-"}`,
+        sale.customer && `Customer: ${sale.customer}`,
+        sale.customer_phone && `Mobile: ${sale.customer_phone}`,
+        `Payment method: ${sale.payment_method}`,
+      ].filter(Boolean);
+      const statusLabel = receiptStatusLabels[sale.status] || sale.status;
+      const estimatedHeight = Math.min(
+        14000,
+        Math.max(
+          155,
+          137 +
+            storeDetails.reduce((height, line) => height + Math.ceil(line.length / 43) * 3.5, 0) +
+            customerDetails.reduce((height, line) => height + Math.ceil(line.length / 37) * 4, 0) +
+            sale.items.reduce((height, item) => height + Math.max(1, Math.ceil(String(item.name).length / 34)) * 4 + 12, 0),
+        ),
+      );
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, estimatedHeight],
+        compress: true,
+      });
+      const left = 6;
+      const right = 74;
+      const contentWidth = right - left;
+      let y = 5;
+      const drawRule = () => {
+        pdf.setDrawColor(174, 181, 164);
+        pdf.setLineDashPattern([1, 1.2], 0);
+        pdf.line(left, y, right, y);
+        pdf.setLineDashPattern([], 0);
+        y += 4;
+      };
+      const addText = (value, { size = 8, bold = false, gap = 2, align = "left", color = [55, 66, 57] } = {}) => {
         pdf.setFont("helvetica", bold ? "bold" : "normal");
         pdf.setFontSize(size);
-        const lines = pdf.splitTextToSize(String(value), maxWidth);
-        const lineHeight = size * 0.48;
-        if (y + lines.length * lineHeight > 280) {
-          pdf.addPage();
-          y = 18;
-        }
-        pdf.text(lines, left, y);
+        pdf.setTextColor(...color);
+        const lines = pdf.splitTextToSize(String(value), contentWidth);
+        const lineHeight = size * 0.42;
+        pdf.text(lines, align === "center" ? 40 : left, y, { align });
         y += lines.length * lineHeight + gap;
       };
+      const addSummaryRow = (label, amount, { bold = false, size = 8 } = {}) => {
+        pdf.setFont("helvetica", bold ? "bold" : "normal");
+        pdf.setFontSize(size);
+        pdf.setTextColor(55, 66, 57);
+        pdf.text(label, left, y);
+        pdf.text(`Rs. ${Number(amount).toFixed(2)}`, right, y, { align: "right" });
+        y += 5;
+      };
 
-      addText(sale.shop_name || "Store receipt", { size: 18, bold: true, gap: 3 });
-      if (sale.shop_address) addText(sale.shop_address, { size: 9, gap: 2 });
-      if (sale.shop_phone) addText(`Phone: ${sale.shop_phone}`, { size: 9, gap: 2 });
-      if (sale.shop_gstin) addText(`GSTIN: ${sale.shop_gstin}`, { size: 9, gap: 2 });
-      y += 3;
-      pdf.setDrawColor(220, 228, 219);
-      pdf.line(left, y, 194, y);
-      y += 8;
-      addText(`Order: ${sale.order_code || sale.id}`, { bold: true });
-      addText(`Date: ${new Date(sale.created_at).toLocaleString("en-IN")}`);
-      addText(`Customer ID: ${sale.customer_code || "-"}`);
-      if (sale.customer) addText(`Customer: ${sale.customer}`);
-      if (sale.customer_phone) addText(`Mobile: ${sale.customer_phone}`);
-      addText(`Payment: ${sale.payment_method}`);
-      y += 2;
+      pdf.setFillColor(255, 254, 245);
+      pdf.rect(0, 0, 80, estimatedHeight, "F");
+      for (let x = 2; x < 80; x += 6) {
+        pdf.setFillColor(235, 235, 225);
+        pdf.circle(x, 1.5, 1.5, "F");
+      }
+
+      pdf.setFillColor(237, 242, 223);
+      pdf.roundedRect(34, y, 12, 12, 2, 2, "F");
+      pdf.setDrawColor(70, 109, 75);
+      pdf.setLineWidth(0.7);
+      pdf.roundedRect(37, y + 3, 6, 6, 0.8, 0.8, "S");
+      pdf.line(38, y + 5, 42, y + 5);
+      pdf.line(38, y + 7, 41, y + 7);
+      y += 17;
+      addText(sale.shop_name || "The Counter", { size: 9, bold: true, color: [87, 114, 83], gap: 1, align: "center" });
+      addText("RECEIPT", { size: 21, bold: true, color: [23, 28, 24], gap: 1, align: "center" });
+      addText("PAYMENT RECEIPT", { size: 7, color: [133, 135, 122], gap: 3, align: "center" });
+      for (const line of storeDetails) {
+        addText(line, { size: 6.5, color: [114, 118, 109], gap: 1, align: "center" });
+      }
+
+      drawRule();
+      addText(`ORDER  ${sale.order_code || sale.id}`, { size: 9, bold: true, gap: 2 });
+      addText(new Date(sale.created_at).toLocaleString("en-IN"), { size: 7, color: [112, 122, 112], gap: 2 });
+      for (const line of customerDetails) addText(line, { size: 7, gap: 1 });
+
+      const statusColors = sale.status === "completed"
+        ? { fill: [228, 242, 229], text: [46, 112, 67] }
+        : sale.status === "cancelled"
+          ? { fill: [251, 235, 232], text: [154, 73, 63] }
+          : sale.status === "preparing"
+            ? { fill: [234, 243, 233], text: [56, 107, 77] }
+            : { fill: [251, 242, 221], text: [133, 98, 31] };
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
+      pdf.setFontSize(6.5);
+      const statusLines = pdf.splitTextToSize(statusLabel, contentWidth - 6);
+      const statusHeight = Math.max(8, statusLines.length * 3 + 4);
+      pdf.setFillColor(...statusColors.fill);
+      pdf.roundedRect(left, y, contentWidth, statusHeight, 2, 2, "F");
+      pdf.setTextColor(...statusColors.text);
+      pdf.text(statusLines, 40, y + statusHeight / 2, { align: "center", baseline: "middle" });
+      y += statusHeight + 4;
+
+      drawRule();
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.setTextColor(112, 122, 112);
       pdf.text("ITEM", left, y);
-      pdf.text("QTY", 143, y, { align: "right" });
-      pdf.text("AMOUNT", 194, y, { align: "right" });
-      y += 3;
-      pdf.line(left, y, 194, y);
-      y += 7;
+      pdf.text("AMOUNT", right, y, { align: "right" });
+      y += 5;
+      pdf.setDrawColor(226, 227, 216);
+      pdf.line(left, y, right, y);
+      y += 2;
 
       for (const item of sale.items || []) {
         const amount = Number(item.price) * Number(item.quantity);
-        addText(item.name, { size: 9, bold: true, gap: 2 });
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(41, 51, 41);
+        const nameLines = pdf.splitTextToSize(item.name, 46);
+        pdf.text(nameLines, left, y);
+        pdf.setFontSize(7);
+        pdf.text(`Rs. ${amount.toFixed(2)}`, right, y, { align: "right" });
+        y += nameLines.length * 3.6;
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(9);
-        pdf.text(`x ${item.quantity}`, 143, y, { align: "right" });
-        pdf.text(`Rs. ${amount.toFixed(2)}`, 194, y, { align: "right" });
-        y += 7;
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(133, 138, 125);
+        pdf.text(`${item.quantity} x Rs. ${Number(item.price).toFixed(2)}`, left, y);
+        y += 5;
+        pdf.setDrawColor(238, 238, 228);
+        pdf.line(left, y - 1.5, right, y - 1.5);
       }
 
       y += 2;
-      pdf.line(left, y, 194, y);
-      y += 8;
-      addText(`Subtotal: Rs. ${Number(sale.subtotal).toFixed(2)}`);
-      addText(`GST (${sale.gst_rate}%, excluding cigarettes): Rs. ${Number(sale.gst_amount).toFixed(2)}`);
-      addText(`TOTAL: Rs. ${Number(sale.total).toFixed(2)}`, { size: 13, bold: true, gap: 8 });
-      addText("Thank you for shopping with us!", { size: 9 });
+      drawRule();
+      addSummaryRow("Subtotal", sale.subtotal);
+      addSummaryRow(`GST (${sale.gst_rate}%, cigarettes excluded)`, sale.gst_amount);
+      pdf.setFillColor(237, 242, 228);
+      pdf.roundedRect(left - 1, y - 3.5, contentWidth + 2, 13, 2, 2, "F");
+      y += 1;
+      addSummaryRow("TOTAL", sale.total, { bold: true, size: 12 });
+      y += 6;
+      addText("THANK YOU FOR SHOPPING WITH US!", { size: 7, bold: true, color: [78, 100, 79], align: "center" });
+      for (let x = 2; x < 80; x += 6) {
+        pdf.setFillColor(235, 235, 225);
+        pdf.circle(x, estimatedHeight - 1.5, 1.5, "F");
+      }
 
       const { url } = await api(`/orders/${sale.id}/receipt-link`, {
         method: "POST",
@@ -1559,6 +1662,15 @@ function App() {
                           </button>
                         </div>
                         <strong>{money(item.price * item.quantity)}</strong>
+                        <button
+                          className="checkout-remove-item"
+                          type="button"
+                          title={`Remove ${item.name} from this order`}
+                          aria-label={`Remove ${item.name} from this order`}
+                          onClick={() => removeFromCart(item.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))
@@ -3218,39 +3330,47 @@ function App() {
             </div>
             <div className="receipt-print">
               <div className="receipt-title">
-                <h2>{receipt.shop_name}</h2>
+                <div className="receipt-brand-mark" aria-hidden="true">
+                  <ReceiptText size={22} strokeWidth={1.7} />
+                </div>
+                <p className="receipt-store-name">{receipt.shop_name || "The Counter"}</p>
+                <h2>RECEIPT</h2>
+                <p className="receipt-caption">PAYMENT RECEIPT</p>
                 {receipt.shop_address && <p>{receipt.shop_address}</p>}
-                {receipt.shop_phone && <p>{receipt.shop_phone}</p>}
+                {receipt.shop_phone && <p>Phone: {receipt.shop_phone}</p>}
                 {receipt.shop_gstin && <p>GSTIN: {receipt.shop_gstin}</p>}
               </div>
               <div className="receipt-meta">
-                <span>Order ID: {receipt.order_code || receipt.id}</span>
-                <span>{date(receipt.created_at)}</span>
+                <div>
+                  <span>ORDER</span>
+                  <strong>{receipt.order_code || receipt.id}</strong>
+                </div>
+                <div>
+                  <span>DATE</span>
+                  <strong>{date(receipt.created_at)}</strong>
+                </div>
               </div>
-              <p className="receipt-customer">
-                Customer ID: {receipt.customer_code || "—"}
-              </p>
-              {receipt.customer_phone && (
-                <p className="receipt-customer">Mobile: {receipt.customer_phone}</p>
-              )}
-              <p className="receipt-customer">
-                {receipt.customer || "Walk-in customer"} ·{" "}
-                {receipt.payment_method}
-              </p>
-              <p className="receipt-customer">
-                Status: {orderLabels[receipt.status]}
-              </p>
-              <div className="receipt-items">
+              <div className="receipt-customer-details">
+                <p>{receipt.customer || "Walk-in customer"}</p>
+                <span>Customer ID: {receipt.customer_code || "—"}</span>
+                {receipt.customer_phone && <span>Mobile: {receipt.customer_phone}</span>}
+                <span>Payment method: {receipt.payment_method}</span>
+                <span className={`receipt-status receipt-status-${receipt.status}`}>
+                  Order status: {receiptStatusLabels[receipt.status] || receipt.status}
+                </span>
+              </div>
+              <div className="receipt-products">
                 {receipt.items?.map((item, index) => (
-                  <div key={index}>
-                    <span>
-                      {item.name} × {item.quantity}
-                    </span>
-                    <strong>{money(Number(item.price) * item.quantity)}</strong>
+                  <div className="receipt-product" key={index}>
+                    <div className="receipt-product-line">
+                      <strong>{item.name}</strong>
+                      <b>{money(Number(item.price) * item.quantity)}</b>
+                    </div>
+                    <small>{item.quantity} × {money(item.price)} each</small>
                   </div>
                 ))}
               </div>
-              <div className="receipt-items">
+              <div className="receipt-summary">
                 <div>
                   <span>Subtotal</span>
                   <span>{money(receipt.subtotal)}</span>
@@ -3264,7 +3384,7 @@ function App() {
                   <strong>{money(receipt.total)}</strong>
                 </div>
               </div>
-              <p className="receipt-thanks">Thank you for shopping with us!</p>
+              <p className="receipt-thanks">THANK YOU FOR SHOPPING WITH US!</p>
             </div>
             <div className="receipt-actions no-print">
               <button
